@@ -6,13 +6,16 @@ echo "Installing HauntMaster Phase 1..."
 # Update system
 sudo apt update && sudo apt upgrade -y
 
+# INSTALL FFMPEG + WEBP (CRITICAL)
+sudo apt install -y ffmpeg webp curl git build-essential libssl-dev pkg-config
+
 # Detect Raspberry Pi
-if [ -f /proc/device-tree/model ] && [[ "$(cat /proc/device-tree/model)" == *"Raspberry"* ]]; then
+if [ -f /proc/device-tree957/model ] && [[ "$(cat /proc/device-tree/model)" == *"Raspberry"* ]]; then
   echo "Raspberry Pi detected — installing omxplayer"
-  sudo apt install -y omxplayer ffmpeg curl git build-essential libssl-dev pkg-config
+  sudo apt install -y omxplayer
 else
   echo "Non-Pi (Ubuntu/VM) — installing mpv"
-  sudo apt install -y mpv ffmpeg curl git build-essential libssl-dev pkg-config
+  sudo apt install -y mpv
 fi
 
 # Install Rust
@@ -42,7 +45,7 @@ cd backend
 cargo build --release
 cd ..
 
-# Create media dirs with full permissions
+# Create media dirs with full perms
 mkdir -p ../../media ../../thumbs
 chmod 777 ../../media ../../thumbs
 
@@ -50,5 +53,4 @@ chmod 777 ../../media ../../thumbs
 chmod +x start.sh
 
 echo "Installed!"
-cd /home/$USER && ./hauntmaster-phase1/phase1/start.sh
-
+cd /home/$USER/hauntmaster-phase1/phase1 && ./start.sh"
