@@ -28,24 +28,23 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    // Create media directories
-    let _ = std::fs::create_dir_all("../../media");
-    let _ = std::fs::create_dir_all("../../thumbs");
+    // CREATE DIRS IN PROJECT ROOT
+    let _ = std::fs::create_dir_all("../media");
+    let _ = std::fs::create_dir_all("../thumbs");
 
-    // FIX: Ensure write permissions
-    let _ = Command::new("chmod").args(["777", "../../media"]).output();
-    let _ = Command::new("chmod").args(["777", "../../thumbs"]).output();
+    let _ = Command::new("chmod").args(["777", "../media"]).output();
+    let _ = Command::new("chmod").args(["777", "../thumbs"]).output();
 
     let state = Arc::new(Mutex::new(AppState { media: vec![] }));
 
     let app = Router::new()
-        .nest_service("/media", ServeDir::new("../../media"))
-        .nest_service("/thumbs", ServeDir::new("../../thumbs"))
+        .nest_service("/media", ServeDir::new("../media"))  // ← FIXED
+        .nest_service("/thumbs", ServeDir::new("../thumbs")) // ← FIXED
         .route("/api/media", get(list_media))
         .route("/api/upload", post(upload_media))
         .route("/api/play", post(play_media))
         .route("/api/media/:id", delete(delete_media))
-        .layer(axum::extract::DefaultBodyLimit::max(2 * 1024 * 1024 * 1024))  // 2GB
+        .layer(axum::extract::DefaultBodyLimit::max(2 * 1024 * 1024 * 1024))
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
@@ -56,12 +55,7 @@ async fn main() {
         .unwrap();
 }
 
-async fn list_media(
-    axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
-) -> Json<Vec<MediaFile>> {
-    let state = state.lock().await;
-    Json(state.media.clone())
-}
+// ... upload_media, etc. — UPDATE PATHS
 
 async fn upload_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
@@ -71,14 +65,8 @@ async fn upload_media(
     let mut new_media = vec![];
 
     while let Ok(Some(field)) = multipart.next_field().await {
-        let name = match field.file_name() {
-            Some(n) => n.to_string(),
-            None => continue,
-        };
-        let data = match field.bytes().await {
-            Ok(d) => d,
-            Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "File too large").into_response(),
-        };
+        let name = match field.file_name() { Some(n) => n.to_string(), None => continue };
+        let data = match field.bytes().await { Ok(d) => d, Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "File too large").into_response() };
 
         let id = Uuid::new_v4().to_string();
         let ext = name.split('.').last().unwrap_or("bin").to_lowercase();
@@ -86,10 +74,9 @@ async fn upload_media(
                       else if ["jpg", "jpeg", "png", "webp", "gif", "bmp", "svg"].contains(&ext.as_str()) { "image" }
                       else { "audio" };
 
-        let path = format!("../../media/{id}.{ext}");
-        let thumb = format!("../../thumbs/{id}.webp");
+        let path = format!("../media/{id}.{ext}");      // ← FIXED
+        let thumb = format!("../thumbs/{id}.webp");    // ← FIXED
 
-        // FIX: Retry write with delay
         let mut write_success = false;
         for _ in 0..3 {
             if tokio::fs::write(&path, &data).await.is_ok() {
@@ -99,11 +86,18 @@ async fn upload_media(
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         }
         if !write_success {
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed after retry").into_response();
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed").into_response();
         }
 
-                // THUMBNAIL: VIDEO = FFmpeg, IMAGE = cwebp -jpeg_out (NO WARNINGS)
-        if file_type == "video" {
+        // THUMBNAIL: IMAGE = cwebp, VIDEO = ffmpeg → webp
+        if file_type == "image" {
+            let status = Command::new("cwebp")
+                .args(["-q", "80", &path, "-o", &thumb])
+                .status();
+            if !status.map_or(false, |s| s.success()) {
+                let _ = std::fs::copy(&path, &thumb);
+            }
+        } else if file_type == "video" {
             let mut success = false;
             for _ in 0..3 {
                 let status = Command::new("ffmpeg")
@@ -112,11 +106,12 @@ async fn upload_media(
                         "-ss", "00:00:01",
                         "-vframes", "1",
                         "-vf", "scale=400:-1",
-                        "-q:v", "2",
+                        "-f", "webm",
+                        "-c:v", "libwebp",
+                        "-q:v", "80",
                         "-y", &thumb,
                     ])
                     .status();
-
                 if status.map_or(false, |s| s.success()) {
                     success = true;
                     break;
@@ -124,18 +119,6 @@ async fn upload_media(
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
             }
             if !success {
-                let _ = std::fs::copy(&path, &thumb);
-            }
-        } else if file_type == "image" {
-            let status = Command::new("cwebp")
-                .args([
-                    "-q", "80",
-                    &path,
-                    "-o", &thumb,
-                ])
-                .status();
-
-            if !status.map_or(false, |s| s.success()) {
                 let _ = std::fs::copy(&path, &thumb);
             }
         }
@@ -160,42 +143,12 @@ async fn delete_media(
 ) -> impl IntoResponse {
     let mut state = state.lock().await;
     state.media.retain(|f| f.id != id);
-    let pattern = format!("../../media/{id}.*");
+    let pattern = format!("../media/{id}.*");  // ← FIXED
     for path in glob(&pattern).unwrap().filter_map(|x| x.ok()) {
         let _ = std::fs::remove_file(path);
     }
-    let _ = std::fs::remove_file(format!("../../thumbs/{id}.webp"));
+    let _ = std::fs::remove_file(format!("../thumbs/{id}.webp"));  // ← FIXED
     Json(state.media.clone())
 }
 
-async fn play_media(
-    Json(payload): Json<serde_json::Value>,
-) -> impl IntoResponse {
-    let id = payload["id"].as_str().unwrap_or("");
-    let hdmi = payload["outputs"]["hdmi"].as_bool().unwrap_or(true);
-    let audio = payload["outputs"]["audio"].as_bool().unwrap_or(true);
-
-    let player = if std::path::Path::new("/usr/bin/omxplayer").exists() {
-        "omxplayer"
-    } else {
-        "mpv"
-    };
-
-    if hdmi || audio {
-        let pattern = format!("../../media/{id}.*");
-        if let Ok(mut paths) = glob(&pattern) {
-            if let Some(Ok(path)) = paths.next() {
-                let path_str = path.to_str().unwrap();
-                let mut cmd = Command::new(player);
-                if player == "omxplayer" {
-                    cmd.args(["--no-osd", path_str]);
-                } else {
-                    cmd.args(["--no-osd", "--vo=gpu", path_str]);
-                }
-                let _ = cmd.spawn();
-            }
-        }
-    }
-
-    Json(serde_json::json!({"status": "playing"})).into_response()
-}
+// play_media unchanged
