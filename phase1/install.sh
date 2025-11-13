@@ -1,13 +1,17 @@
 #!/bin/bash
 set -e
 
-echo "🎃 Installing HauntMaster Phase 1..."
+echo "🎃 Installing HauntMaster Phase 1 (Ubuntu/MPV Mode)..."
 
 # Update system
 sudo apt update && sudo apt upgrade -y
 
-# Install dependencies
-sudo apt install -y omxplayer ffmpeg curl git build-essential libssl-dev pkg-config
+# Install dependencies (MPV for Ubuntu, OMX for Pi)
+if [ -f /proc/device-tree/model ] && [[ "$(cat /proc/device-tree/model)" == *"Raspberry"* ]]; then
+  sudo apt install -y omxplayer ffmpeg curl git build-essential libssl-dev pkg-config
+else
+  sudo apt install -y mpv ffmpeg curl git build-essential libssl-dev pkg-config
+fi
 
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
