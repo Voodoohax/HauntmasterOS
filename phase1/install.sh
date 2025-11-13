@@ -48,3 +48,5 @@ chmod +x start.sh
 echo "✅ Installed!"
 echo "Run: cd /home/$USER && ./hauntmaster-phase1/phase1/start.sh"
 echo "Open: http://$(hostname -I | awk '{print $1}')"
+echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+echo "Rust added to PATH. Restart terminal or run: source ~/.bashrc"
