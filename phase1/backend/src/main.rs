@@ -90,6 +90,7 @@ async fn upload_media(
 
         // THUMBNAIL WITH RETRY
                 // THUMBNAIL: VIDEO OR IMAGE — FINAL FIX: FORCE yuv420p
+                // THUMBNAIL: FINAL FIX — BANISH yuvj* FOREVER
         if file_type == "video" || file_type == "image" {
             let mut success = false;
             for _ in 0..3 {
@@ -101,7 +102,8 @@ async fn upload_media(
                             "-vframes", "1",
                             "-vf", "scale=400:-1",
                             "-q:v", "2",
-                            "-pix_fmt", "yuv420p",  // ← FORCE PC RANGE
+                            "-pix_fmt", "yuv420p",
+                            "-color_range", "1",   // ← PC RANGE (16-235)
                             "-y", &thumb,
                         ])
                         .status()
@@ -111,7 +113,8 @@ async fn upload_media(
                             "-i", &path,
                             "-vf", "scale=400:-1",
                             "-q:v", "2",
-                            "-pix_fmt", "yuv420p",  // ← FORCE PC RANGE
+                            "-pix_fmt", "yuv420p",
+                            "-color_range", "1",   // ← PC RANGE
                             "-update", "1",
                             "-frames:v", "1",
                             "-y", &thumb,
@@ -127,7 +130,7 @@ async fn upload_media(
             }
 
             if !success {
-                let _ = std::fs::copy(&path, &thumb);  // Fallback
+                let _ = std::fs::copy(&path, &thumb);
             }
         }
         
