@@ -87,7 +87,7 @@ async fn upload_media(
                       else { "audio" };
 
         let path = format!("../../media/{id}.{ext}");
-        let thumb = format!("../../thumbs/{id}.jpg");
+        let thumb = format!("../../thumbs/{id}.webp");
 
         // FIX: Retry write with delay
         let mut write_success = false;
@@ -130,7 +130,6 @@ async fn upload_media(
             let status = Command::new("cwebp")
                 .args([
                     "-q", "80",
-                    "-jpeg_out",
                     &path,
                     "-o", &thumb,
                 ])
@@ -145,7 +144,7 @@ async fn upload_media(
             id: id.clone(),
             name,
             path: format!("/media/{id}.{ext}"),
-            thumb: format!("/thumbs/{id}.jpg"),
+            thumb: format!("/thumbs/{id}.webp"),
             file_type: file_type.to_string(),
         };
         new_media.push(media_file.clone());
@@ -165,7 +164,7 @@ async fn delete_media(
     for path in glob(&pattern).unwrap().filter_map(|x| x.ok()) {
         let _ = std::fs::remove_file(path);
     }
-    let _ = std::fs::remove_file(format!("../../thumbs/{id}.jpg"));
+    let _ = std::fs::remove_file(format!("../../thumbs/{id}.webp"));
     Json(state.media.clone())
 }
 
