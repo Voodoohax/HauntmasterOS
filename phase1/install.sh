@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🎃 Installing HauntMaster Phase 1..."
+echo "Installing HauntMaster Phase 1..."
 
 # Update system
 sudo apt update && sudo apt upgrade -y
@@ -18,6 +18,9 @@ fi
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 source "$HOME/.cargo/env"
+
+# Add Rust to PATH permanently
+echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
 
 # Install Node.js
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -45,8 +48,7 @@ mkdir -p ../../media ../../thumbs
 # Make start script executable
 chmod +x start.sh
 
-echo "✅ Installed!"
-echo "Run: cd /home/$USER && ./hauntmaster-phase1/phase1/start.sh"
-echo "Open: http://$(hostname -I | awk '{print $1}')"
-echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
-echo "Rust added to PATH. Restart terminal or run: source ~/.bashrc"
+echo "Installed!"
+echo "Starting Hauntmaster session"
+cd /home/$USER && ./hauntmaster-phase1/phase1/start.sh
+echo "Open: http://$(hostname -I | awk '{print $1}'):8080"
