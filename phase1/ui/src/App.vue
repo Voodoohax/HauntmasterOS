@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-black text-orange-500 font-mono p-4">
+  <div class="min-h-screen bg-black text-orange-500 p-4">
     <header class="text-center mb-6">
       <h1 class="text-4xl">🎃 HAUNTMASTER ZERO</h1>
-      <p class="text-sm">Node: {{ nodeCount }} | Status: <span :class="statusClass">{{ status }}</span></p>
+      <p>Status: <span class="text-green-400">IDLE</  ></p>
     </header>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -16,7 +16,7 @@
           @dragover.prevent
           @click="$refs.fileInput.click()"
         >
-          <p class="text-lg">DROP FILES HERE</p>
+          <p>DROP FILES HERE</p>
           <input type="file" multiple ref="fileInput" @change="uploadFiles" class="hidden" />
         </div>
 
@@ -63,27 +63,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useWebSocket } from './ws'
+import { ref, computed, onMounted } from 'vue'
 
 const media = ref([])
 const search = ref('')
 const hdmi = ref(true)
 const audio = ref(true)
 const playing = ref(null)
-const status = ref('IDLE')
-const nodeCount = ref(1)
-
-const { send, onMessage } = useWebSocket()
-
-onMounted(() => {
-  fetchMedia()
-  onMessage((data) => {
-    if (data.type === 'playback_start') playing.value = data.file
-    if (data.type === 'playback_end') playing.value = null
-    if (data.type === 'status') status.value = data.status
-  })
-})
 
 const filteredMedia = computed(() => 
   media.value.filter(f => f.name.toLowerCase().includes(search.value.toLowerCase()))
@@ -107,15 +93,15 @@ async function uploadFiles(e) {
 function handleDrop(e) { uploadFiles(e) }
 
 async function play(file) {
-  send({
-    type: 'play',
-    id: file.id,
-    outputs: { hdmi: hdmi.value, audio: audio.value }
+  await fetch('/api/play', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: file.id, outputs: { hdmi: hdmi.value, audio: audio.value } })
   })
 }
 
 async function stopAll() {
-  send({ type: 'stop' })
+  await fetch('/api/stop', { method: 'POST' })
 }
 
 async function remove(file) {
@@ -124,4 +110,9 @@ async function remove(file) {
     fetchMedia()
   }
 }
+
+onMounted(() => {
+  fetchMedia()
+  setInterval(fetchMedia, 5000)
+})
 </script>
