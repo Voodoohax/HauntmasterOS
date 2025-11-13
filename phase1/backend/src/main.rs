@@ -89,16 +89,30 @@ async fn upload_media(
         }
 
         // THUMBNAIL WITH RETRY
-        let thumb_exists = if file_type == "video" || file_type == "image" {
+        if file_type == "video" || file_type == "image" {
             let mut success = false;
-            for _ in 0..3 {  // Retry 3x
+            for _ in 0..3 {
                 let status = if file_type == "video" {
                     Command::new("ffmpeg")
-                        .args(["-i", &path, "-ss", "00:00:01", "-vframes", "1", "-q:v", "2", "-y", &thumb])
+                        .args([
+                            "-i", &path,
+                            "-ss", "00:00:01",
+                            "-vframes", "1",
+                            "-q:v", "2",
+                            "-vf", "scale=400:-1",
+                            "-y", &thumb,
+                        ])
                         .status()
                 } else {
                     Command::new("ffmpeg")
-                        .args(["-i", &path, "-vf", "scale=400:-1", "-q:v", "2", "-y", &thumb])
+                        .args([
+                            "-i", &path,
+                            "-vf", "scale=400:-1",
+                            "-q:v", "2",
+                            "-update", "1",
+                            "-frames:v", "1",
+                            "-y", &thumb,
+                        ])
                         .status()
                 };
 
@@ -108,15 +122,12 @@ async fn upload_media(
                 }
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
             }
-            success
-        } else {
-            false
-        };
 
-        if !thumb_exists {
-            let _ = std::fs::copy(&path, &thumb);  // Fallback
+            if !success {
+                let _ = std::fs::copy(&path, &thumb);  // Fallback
+            }
         }
-
+        
         let media_file = MediaFile {
             id: id.clone(),
             name,
