@@ -174,7 +174,7 @@ async fn play_media(
                 let path_str = path.to_str().unwrap();
                 let mut cmd = Command::new(player);
                 if player == "omxplayer" {
-                    cmd.args(["--no-osd", path_str]);
+                    cmd.args(["", path_str]);
                 } else {
                     cmd.args(["--no-osd", "--vo=gpu", path_str]);
                 }
