@@ -1,23 +1,15 @@
 #!/bin/bash
 echo "Starting HauntMaster..."
 
-# === 1. ENSURE RUST IS IN PATH ===
-if ! command -v cargo &> /dev/null; then
-    echo "cargo not found — sourcing Rust env..."
-    if [ -f "$HOME/.cargo/env" ]; then
-        source "$HOME/.cargo/env"
-    else
-        echo "Rust not installed! Run install.sh first."
-        exit 1
-    fi
+# Source Rust
+if ! command -v cargo &> /dev/null && [ -f "$HOME/.cargo/env" ]; then
+    source "$HOME/.cargo/env"
 fi
 
-# === 2. START BACKEND ===
-echo "Starting API on :3000..."
+# Start API
 cd /home/$USER/hauntmaster-phase1/phase1/backend
 cargo run --release &
 
-# === 3. SERVE UI ON :8080 ===
-echo "Serving UI on :8080..."
-cd /home/$USER/hauntmaster-phase1/phase1/ui/dist
-python3 -m http.server 8080
+# Start UI in DEV MODE (proxy + hot reload)
+cd /home/$USER/hauntmaster-phase1/phase1/ui
+npm run dev -- --host 0.0.0.0 --port 8080
