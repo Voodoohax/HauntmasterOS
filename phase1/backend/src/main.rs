@@ -88,39 +88,21 @@ async fn upload_media(
             return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed").into_response();
         }
 
-                // THUMBNAIL: NUCLEAR FIX — NO YUVJ, EVER
-        if file_type == "video" || file_type == "image" {
+                        // THUMBNAIL: VIDEO = FFmpeg, IMAGE = cwebp → NO WARNINGS
+        if file_type == "video" {
+            // Video: FFmpeg (warning harmless, thumbnail works)
             let mut success = false;
             for _ in 0..3 {
-                let status = if file_type == "video" {
-                    Command::new("ffmpeg")
-                        .args([
-                            "-i", &path,
-                            "-ss", "00:00:01",
-                            "-vframes", "1",
-                            "-vf", "scale=400:-1,format=yuv420p",  // ← FORCE FORMAT
-                            "-q:v", "2",
-                            "-sws_flags", "+accurate_rnd+full_chroma_input+full_chroma_interp",  // ← NUKE FULL RANGE
-                            "-color_range", "1",
-                            "-colorspace", "bt709",
-                            "-y", &thumb,
-                        ])
-                        .status()
-                } else {
-                    Command::new("ffmpeg")
-                        .args([
-                            "-i", &path,
-                            "-vf", "scale=400:-1,format=yuv420p",
-                            "-q:v", "2",
-                            "-sws_flags", "+accurate_rnd+full_chroma_input+full_chroma_interp",
-                            "-color_range", "1",
-                            "-colorspace", "bt709",
-                            "-update", "1",
-                            "-frames:v", "1",
-                            "-y", &thumb,
-                        ])
-                        .status()
-                };
+                let status = Command::new("ffmpeg")
+                    .args([
+                        "-i", &path,
+                        "-ss", "00:00:01",
+                        "-vframes", "1",
+                        "-vf", "scale=400:-1",
+                        "-q:v", "2",
+                        "-y", &thumb,
+                    ])
+                    .status();
 
                 if status.map_or(false, |s| s.success()) {
                     success = true;
@@ -128,8 +110,25 @@ async fn upload_media(
                 }
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
             }
-
             if !success {
+                let _ = std::fs::copy(&path, &thumb);
+            }
+        } else if file_type == "image" {
+            // Image: Use cwebp → WebP → convert to JPG
+            let webp_temp = format!("{}.webp", thumb.strip_suffix(".jpg").unwrap());
+            let status1 = Command::new("cwebp")
+                .args(["-q", "80", &path, "-o", &webp_temp])
+                .status();
+
+            if status1.map_or(false, |s| s.success()) {
+                let status2 = Command::new("ffmpeg")
+                    .args(["-i", &webp_temp, "-y", &thumb])
+                    .status();
+                let _ = std::fs::remove_file(&webp_temp);
+                if !status2.map_or(false, |s| s.success()) {
+                    let _ = std::fs::copy(&path, &thumb);
+                }
+            } else {
                 let _ = std::fs::copy(&path, &thumb);
             }
         }
