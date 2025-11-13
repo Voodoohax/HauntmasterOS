@@ -1,17 +1,18 @@
 use axum::{
     routing::{get, post, delete},
     Router, Json, extract::{Multipart, Path}, response::IntoResponse,
-    http::{header, StatusCode},
-    extract::DefaultBodyLimit,
+    http::{StatusCode},
+    error_handling::OnError,
 };
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::{CorsLayer};
 use tower_http::services::ServeDir;
 use glob::glob;
+use std::io;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct MediaFile {
@@ -34,8 +35,8 @@ async fn main() {
     let state = Arc::new(Mutex::new(AppState { media: vec![] }));
 
     let app = Router::new()
-        .nest_service("/media", ServeDir::new("../../media"))
-        .nest_service("/thumbs", ServeDir::new("../../thumbs"))
+        .nest_service("/media", get_service(ServeDir::new("../../media")).handle_error(handle_file_error))
+        .nest_service("/thumbs", get_service(ServeDir::new("../../thumbs")).handle_error(handle_file_error))
         .route("/api/media", get(list_media))
         .route("/api/upload", post(upload_media))
         .route("/api/play", post(play_media))
@@ -49,6 +50,10 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
+}
+
+async fn handle_file_error(err: io::Error) -> impl IntoResponse {
+    (StatusCode::NOT_FOUND, format!("File not found: {}", err))
 }
 
 async fn list_media(
@@ -88,21 +93,33 @@ async fn upload_media(
             return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed").into_response();
         }
 
-        // THUMBNAIL
-        if file_type == "video" || file_type == "image" {
-            let status = if file_type == "video" {
-                Command::new("ffmpeg")
-                    .args(["-i", &path, "-ss", "00:00:01", "-vframes", "1", "-q:v", "2", "-y", &thumb])
-                    .status()
-            } else {
-                Command::new("ffmpeg")
-                    .args(["-i", &path, "-vf", "scale=400:-1", "-q:v", "2", "-y", &thumb])
-                    .status()
-            };
+        // THUMBNAIL: RETRY ON FAIL
+        let thumb_exists = if file_type == "video" || file_type == "image" {
+            let mut success = false;
+            for _ in 0..3 {  // Retry 3x
+                let status = if file_type == "video" {
+                    Command::new("ffmpeg")
+                        .args(["-i", &path, "-ss", "00:00:01", "-vframes", "1", "-q:v", "2", "-y", &thumb])
+                        .status()
+                } else {
+                    Command::new("ffmpeg")
+                        .args(["-i", &path, "-vf", "scale=400:-1", "-q:v", "2", "-y", &thumb])
+                        .status()
+                };
 
-            if status.map(|s| !s.success()).unwrap_or(true) {
-                let _ = std::fs::copy(&path, &thumb);
+                if status.map_or(false, |s| s.success()) {
+                    success = true;
+                    break;
+                }
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;  // Wait for gen
             }
+            success
+        } else {
+            false
+        };
+
+        if !thumb_exists {
+            let _ = std::fs::copy(&path, &thumb);  // Fallback to original
         }
 
         let media_file = MediaFile {
