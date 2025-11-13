@@ -1,9 +1,15 @@
 #!/bin/bash
 echo "Starting HauntMaster..."
 
-# Source Rust
-if ! command -v cargo &> /dev/null && [ -f "$HOME/.cargo/env" ]; then
-    source "$HOME/.cargo/env"
+# === 1. ENSURE RUST IS IN PATH ===
+if ! command -v cargo &> /dev/null; then
+    echo "cargo not found — sourcing Rust env..."
+    if [ -f "$HOME/.cargo/env" ]; then
+        source "$HOME/.cargo/env"
+    else
+        echo "Rust not installed! Run install.sh first."
+        exit 1
+    fi
 fi
 
 # Start API
