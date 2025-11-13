@@ -49,6 +49,5 @@ mkdir -p ../../media ../../thumbs
 chmod +x start.sh
 
 echo "Installed!"
-echo "Starting Hauntmaster session"
 cd /home/$USER && ./hauntmaster-phase1/phase1/start.sh
-echo "Open: http://$(hostname -I | awk '{print $1}'):8080"
+
