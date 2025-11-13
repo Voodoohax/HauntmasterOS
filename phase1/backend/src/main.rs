@@ -11,10 +11,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 use tower_http::cors::{CorsLayer, Any};
 use glob::glob;
-
 use std::io::Write;
-
-let _ = writeln!(std::io::stderr(), "Error: {:?}", e);
 
 #[derive(Serialize, Deserialize, Clone)]
 struct MediaFile {
@@ -78,6 +75,7 @@ async fn upload_media(
         let thumb = format!("../../thumbs/{id}.jpg");
 
         tokio::fs::write(&path, &data).await.unwrap();
+        
 
         // Thumbnail
         if file_type != "audio" {
