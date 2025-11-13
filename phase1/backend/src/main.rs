@@ -102,7 +102,7 @@ async fn upload_media(
             return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed after retry").into_response();
         }
 
-        // THUMBNAIL: VIDEO = FFmpeg, IMAGE = cwebp (zero warnings)
+                // THUMBNAIL: VIDEO = FFmpeg, IMAGE = cwebp -jpeg_out (NO WARNINGS)
         if file_type == "video" {
             let mut success = false;
             for _ in 0..3 {
@@ -127,20 +127,16 @@ async fn upload_media(
                 let _ = std::fs::copy(&path, &thumb);
             }
         } else if file_type == "image" {
-            let webp_temp = format!("{}.webp", thumb.strip_suffix(".jpg").unwrap());
-            let status1 = Command::new("cwebp")
-                .args(["-q", "80", &path, "-o", &webp_temp])
+            let status = Command::new("cwebp")
+                .args([
+                    "-q", "80",
+                    "-jpeg_out",
+                    &path,
+                    "-o", &thumb,
+                ])
                 .status();
 
-            if status1.map_or(false, |s| s.success()) {
-                let status2 = Command::new("ffmpeg")
-                    .args(["-i", &webp_temp, "-y", &thumb])
-                    .status();
-                let _ = std::fs::remove_file(&webp_temp);
-                if !status2.map_or(false, |s| s.success()) {
-                    let _ = std::fs::copy(&path, &thumb);
-                }
-            } else {
+            if !status.map_or(false, |s| s.success()) {
                 let _ = std::fs::copy(&path, &thumb);
             }
         }
