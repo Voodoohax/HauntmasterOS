@@ -28,7 +28,6 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    // CREATE DIRS IN PROJECT ROOT
     let _ = std::fs::create_dir_all("../media");
     let _ = std::fs::create_dir_all("../thumbs");
 
@@ -38,8 +37,8 @@ async fn main() {
     let state = Arc::new(Mutex::new(AppState { media: vec![] }));
 
     let app = Router::new()
-        .nest_service("/media", ServeDir::new("../media"))  // ← FIXED
-        .nest_service("/thumbs", ServeDir::new("../thumbs")) // ← FIXED
+        .nest_service("/media", ServeDir::new("../media"))
+        .nest_service("/thumbs", ServeDir::new("../thumbs"))
         .route("/api/media", get(list_media))
         .route("/api/upload", post(upload_media))
         .route("/api/play", post(play_media))
@@ -55,8 +54,15 @@ async fn main() {
         .unwrap();
 }
 
-// ... upload_media, etc. — UPDATE PATHS
+// LIST MEDIA
+async fn list_media(
+    axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
+) -> Json<Vec<MediaFile>> {
+    let state = state.lock().await;
+    Json(state.media.clone())
+}
 
+// UPLOAD MEDIA
 async fn upload_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
     mut multipart: Multipart,
@@ -74,8 +80,8 @@ async fn upload_media(
                       else if ["jpg", "jpeg", "png", "webp", "gif", "bmp", "svg"].contains(&ext.as_str()) { "image" }
                       else { "audio" };
 
-        let path = format!("../media/{id}.{ext}");      // ← FIXED
-        let thumb = format!("../thumbs/{id}.webp");    // ← FIXED
+        let path = format!("../media/{id}.{ext}");
+        let thumb = format!("../thumbs/{id}.webp");
 
         let mut write_success = false;
         for _ in 0..3 {
@@ -89,7 +95,6 @@ async fn upload_media(
             return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed").into_response();
         }
 
-        // THUMBNAIL: IMAGE = cwebp, VIDEO = ffmpeg → webp
         if file_type == "image" {
             let status = Command::new("cwebp")
                 .args(["-q", "80", &path, "-o", &thumb])
@@ -108,7 +113,7 @@ async fn upload_media(
                         "-vf", "scale=400:-1",
                         "-f", "webm",
                         "-c:v", "libwebp",
-                        "-q:v", "80",
+  "-q:v", "80",
                         "-y", &thumb,
                     ])
                     .status();
@@ -137,18 +142,24 @@ async fn upload_media(
     Json(state.media.clone()).into_response()
 }
 
+// DELETE MEDIA
 async fn delete_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     let mut state = state.lock().await;
     state.media.retain(|f| f.id != id);
-    let pattern = format!("../media/{id}.*");  // ← FIXED
+    let pattern = format!("../media/{id}.*");
     for path in glob(&pattern).unwrap().filter_map(|x| x.ok()) {
         let _ = std::fs::remove_file(path);
     }
-    let _ = std::fs::remove_file(format!("../thumbs/{id}.webp"));  // ← FIXED
+    let _ = std::fs::remove_file(format!("../thumbs/{id}.webp"));
     Json(state.media.clone())
 }
 
-// play_media unchanged
+// PLAY MEDIA
+async fn play_media(
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let id = payload["id"].as_str().unwrap_or("");
+    let
