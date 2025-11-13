@@ -1,12 +1,15 @@
 use axum::{
     routing::{get, post, delete},
     Router, Json, extract::{Multipart, Path}, response::IntoResponse,
+    http::header,
 };
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
+use tower_http::cors::{CorsLayer, Any};
+use glob::glob;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct MediaFile {
@@ -19,34 +22,38 @@ struct MediaFile {
 
 struct AppState {
     media: Vec<MediaFile>,
-    current_playback: Option<String>,
 }
 
 #[tokio::main]
 async fn main() {
-    let state = Arc::new(Mutex::new(AppState {
-        media: vec![],
-        current_playback: None,
-    }));
+    // Create media dirs
+    let _ = std::fs::create_dir_all("../../media");
+    let _ = std::fs::create_dir_all("../../thumbs");
+
+    let state = Arc::new(Mutex::new(AppState { media: vec![] }));
 
     let app = Router::new()
         .route("/api/media", get(list_media))
         .route("/api/upload", post(upload_media))
-        .route("/api/media/:id31", delete(delete_media))
+        .route("/api/media/:id", delete(delete_media))
+        .route("/api/play", post(play_media))
+        .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
-    println!("🎃 HauntMaster API running on :3000");
+    println!("HauntMaster API running on :3000");
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
         .serve(app.into_make_service())
         .await
         .unwrap();
 }
 
+// LIST
 async fn list_media(axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>) -> Json<Vec<MediaFile>> {
     let state = state.lock().await;
     Json(state.media.clone())
 }
 
+// UPLOAD
 async fn upload_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
     mut multipart: Multipart,
@@ -62,36 +69,70 @@ async fn upload_media(
                       else if ["jpg", "png", "webp"].contains(&ext.as_str()) { "image" }
                       else { "audio" };
 
-        let path = format!("/media/{id}.{ext}");
-        let thumb = format!("/thumbs/{id}.jpg");
+        let path = format!("../../media/{id}.{ext}");
+        let thumb = format!("../../thumbs/{id}.jpg");
 
-        tokio::fs::write(format!("../../.{path}"), &data).await.unwrap();
+        tokio::fs::write(&path, &data).await.unwrap();
 
-        // Generate thumbnail
+        // Thumbnail
         if file_type != "audio" {
             let _ = Command::new("ffmpeg")
-                .args(["-i", &format!("../../.{path}"), "-ss", "00:00:01", "-vframes", "1", &format!("../../.{thumb}")])
+                .args(["-i", &path, "-ss", "00:00:01", "-vframes", "1", "-y", &thumb])
                 .output();
         }
 
         state.media.push(MediaFile {
             id: id.clone(),
             name,
-            path,
-            thumb,
+            path: format!("/media/{id}.{ext}"),
+            thumb: format!("/thumbs/{id}.jpg"),
             file_type: file_type.to_string(),
         });
     }
     Json(state.media.clone())
 }
 
+// DELETE
 async fn delete_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     let mut state = state.lock().await;
     state.media.retain(|f| f.id != id);
-    let _ = tokio::fs::remove_file(format!("../../media/{id}.*"));
-    let _ = tokio::fs::remove_file(format!("../../thumbs/{id}.jpg"));
+    let _ = std::fs::remove_file(format!("../../media/{id}.*"));
+    let _ = std::fs::remove_file(format!("../../thumbs/{id}.jpg"));
     Json(state.media.clone())
+}
+
+// PLAY
+async fn play_media(
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let id = payload["id"].as_str().unwrap();
+    let hdmi = payload["outputs"]["hdmi"].as_bool().unwrap_or(true);
+    let audio = payload["outputs"]["audio"].as_bool().unwrap_or(true);
+
+    let player = if std::path::Path::new("/usr/bin/omxplayer").exists() {
+        "omxplayer"
+    } else {
+        "mpv"
+    };
+
+    if hdmi || audio {
+        let pattern = format!("../../media/{id}.*");
+        if let Ok(mut paths) = glob(&pattern) {
+            if let Some(Ok(path)) = paths.next() {
+                let path_str = path.to_str().unwrap();
+                let mut cmd = Command::new(player);
+                if player == "omxplayer" {
+                    cmd.args(["--no-osd", path_str]);
+                } else {
+                    cmd.args(["--no-osd", "--vo=gpu", path_str]);
+                }
+                let _ = cmd.spawn();
+            }
+        }
+    }
+
+    Json(serde_json::json!({"status": "playing"}))
 }
