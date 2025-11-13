@@ -42,8 +42,9 @@ cd backend
 cargo build --release
 cd ..
 
-# Create media dirs
+# Create media dirs with full permissions
 mkdir -p ../../media ../../thumbs
+chmod 777 ../../media ../../thumbs
 
 # Make start script executable
 chmod +x start.sh
