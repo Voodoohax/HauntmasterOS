@@ -88,9 +88,7 @@ async fn upload_media(
             return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed").into_response();
         }
 
-        // THUMBNAIL WITH RETRY
-                // THUMBNAIL: VIDEO OR IMAGE — FINAL FIX: FORCE yuv420p
-                // THUMBNAIL: FINAL FIX — BANISH yuvj* FOREVER
+                // THUMBNAIL: NUCLEAR FIX — NO YUVJ, EVER
         if file_type == "video" || file_type == "image" {
             let mut success = false;
             for _ in 0..3 {
@@ -100,10 +98,11 @@ async fn upload_media(
                             "-i", &path,
                             "-ss", "00:00:01",
                             "-vframes", "1",
-                            "-vf", "scale=400:-1",
+                            "-vf", "scale=400:-1,format=yuv420p",  // ← FORCE FORMAT
                             "-q:v", "2",
-                            "-pix_fmt", "yuv420p",
-                            "-color_range", "1",   // ← PC RANGE (16-235)
+                            "-sws_flags", "+accurate_rnd+full_chroma_input+full_chroma_interp",  // ← NUKE FULL RANGE
+                            "-color_range", "1",
+                            "-colorspace", "bt709",
                             "-y", &thumb,
                         ])
                         .status()
@@ -111,10 +110,11 @@ async fn upload_media(
                     Command::new("ffmpeg")
                         .args([
                             "-i", &path,
-                            "-vf", "scale=400:-1",
+                            "-vf", "scale=400:-1,format=yuv420p",
                             "-q:v", "2",
-                            "-pix_fmt", "yuv420p",
-                            "-color_range", "1",   // ← PC RANGE
+                            "-sws_flags", "+accurate_rnd+full_chroma_input+full_chroma_interp",
+                            "-color_range", "1",
+                            "-colorspace", "bt709",
                             "-update", "1",
                             "-frames:v", "1",
                             "-y", &thumb,
