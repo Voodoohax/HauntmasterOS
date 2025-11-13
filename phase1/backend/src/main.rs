@@ -13,6 +13,7 @@ use uuid::Uuid;
 use tower_http::cors::CorsLayer;
 use glob::glob;
 use std::path::PathBuf;
+use mime;
 
 // ... (MediaFile, AppState same)
 
