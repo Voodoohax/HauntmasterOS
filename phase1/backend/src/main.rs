@@ -7,8 +7,6 @@ use std::process::Command;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use std::path::PathBuf;
-use std::env;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct MediaFile {
