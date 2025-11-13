@@ -12,6 +12,7 @@ use uuid::Uuid;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 use glob::glob;
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct MediaFile {
@@ -28,17 +29,23 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
+    // ENSURE DIRS EXIST
     let _ = std::fs::create_dir_all("../media");
     let _ = std::fs::create_dir_all("../thumbs");
 
+    // CHMOD
     let _ = Command::new("chmod").args(["777", "../media"]).output();
     let _ = Command::new("chmod").args(["777", "../thumbs"]).output();
+
+    // ABSOLUTE PATHS
+    let media_dir = std::fs::canonicalize("../media").unwrap_or_else(|_| PathBuf::from("../media"));
+    let thumbs_dir = std::fs::canonicalize("../thumbs").unwrap_or_else(|_| PathBuf::from("../thumbs"));
 
     let state = Arc::new(Mutex::new(AppState { media: vec![] }));
 
     let app = Router::new()
-        .nest_service("/media", ServeDir::new("../media"))
-        .nest_service("/thumbs", ServeDir::new("../thumbs"))
+        .nest_service("/media", ServeDir::new(media_dir))   // ← ABSOLUTE
+        .nest_service("/thumbs", ServeDir::new(thumbs_dir)) // ← ABSOLUTE
         .route("/api/media", get(list_media))
         .route("/api/upload", post(upload_media))
         .route("/api/play", post(play_media))
