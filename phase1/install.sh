@@ -53,4 +53,4 @@ chmod 777 ../../media ../../thumbs
 chmod +x start.sh
 
 echo "Installed!"
-cd /home/$USER/hauntmaster-phase1/phase1 && ./start.sh"
+cd /home/$USER/hauntmaster-phase1/phase1 && ./start.sh
