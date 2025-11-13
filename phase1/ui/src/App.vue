@@ -11,12 +11,22 @@
         <h2 class="text-xl mb-4">MEDIA VAULT</h2>
         
         <div 
-          class="border-2 border-dashed border-orange-600 rounded-lg p-8 text-center cursor-pointer mb-4"
+          class="border-2 border-dashed border-orange-600 rounded-lg p-8 text-center cursor-pointer mb-4 relative"
           @drop.prevent="handleDrop"
           @dragover.prevent
           @click="$refs.fileInput.click()"
         >
-          <p>DROP FILES HERE</p>
+          <p v-if="!uploading">DROP FILES HERE</p>
+          <div v-else class="space-y-2">
+            <p>Uploading: {{ uploadFileName }}</p>
+            <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
+              <div 
+                class="bg-orange-600 h-full transition-all duration-300"
+                :style="{ width: uploadProgress + '%' }"
+              ></div>
+            </div>
+            <p class="text-sm">{{ uploadProgress }}%</p>
+          </div>
           <input type="file" multiple ref="fileInput" @change="uploadFiles" class="hidden" />
         </div>
 
@@ -70,6 +80,9 @@ const search = ref('')
 const hdmi = ref(true)
 const audio = ref(true)
 const playing = ref(null)
+const uploading = ref(false)
+const uploadProgress = ref(0)
+const uploadFileName = ref('')
 
 const filteredMedia = computed(() => 
   media.value.filter(f => f.name.toLowerCase().includes(search.value.toLowerCase()))
@@ -84,10 +97,41 @@ async function fetchMedia() {
 
 async function uploadFiles(e) {
   const files = e.target.files || e.dataTransfer.files
-  const form = new FormData()
-  for (let f of files) form.append('files', f)
-  await fetch('/api/upload', { method: 'POST', body: form })
-  fetchMedia()
+  if (!files.length) return
+
+  uploading.value = true
+  uploadProgress.value = 0
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    uploadFileName.value = file.name
+
+    const form = new FormData()
+    form.append('files', file)
+
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', '/api/upload')
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        uploadProgress.value = Math.round((e.loaded * 100) / e.total)
+      }
+    }
+
+    xhr.onload = async () => {
+      if (xhr.status === 200) {
+        fetchMedia()
+      } else {
+        alert('Upload failed: ' + xhr.responseText)
+      }
+      if (i === files.length - 1) {
+        uploading.value = false
+        uploadProgress.value = 0
+      }
+    }
+
+    xhr.send(form)
+  }
 }
 
 function handleDrop(e) { uploadFiles(e) }
