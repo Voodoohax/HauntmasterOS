@@ -89,6 +89,7 @@ async fn upload_media(
         }
 
         // THUMBNAIL WITH RETRY
+                // THUMBNAIL: VIDEO OR IMAGE — FINAL FIX: FORCE yuv420p
         if file_type == "video" || file_type == "image" {
             let mut success = false;
             for _ in 0..3 {
@@ -98,8 +99,9 @@ async fn upload_media(
                             "-i", &path,
                             "-ss", "00:00:01",
                             "-vframes", "1",
-                            "-q:v", "2",
                             "-vf", "scale=400:-1",
+                            "-q:v", "2",
+                            "-pix_fmt", "yuv420p",  // ← FORCE PC RANGE
                             "-y", &thumb,
                         ])
                         .status()
@@ -109,6 +111,7 @@ async fn upload_media(
                             "-i", &path,
                             "-vf", "scale=400:-1",
                             "-q:v", "2",
+                            "-pix_fmt", "yuv420p",  // ← FORCE PC RANGE
                             "-update", "1",
                             "-frames:v", "1",
                             "-y", &thumb,
