@@ -1,51 +1,33 @@
 use axum::{
     routing::{get, post, delete},
-    Router, Json, extract::{Multipart, Path}, response::IntoResponse,
-    http::StatusCode,
+    Router, Json, extract::{Multipart, Path}, response::{IntoResponse, Response}, http::{header, StatusCode},
 };
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::process::Command;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio::fs::File;
+use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 use tower_http::cors::CorsLayer;
-use tower_http::services::ServeDir;
 use glob::glob;
 use std::path::PathBuf;
 
-#[derive(Serialize, Deserialize, Clone)]
-struct MediaFile {
-    id: String,
-    name: String,
-    path: String,
-    thumb: String,
-    file_type: String,
-}
-
-struct AppState {
-    media: Vec<MediaFile>,
-}
+// ... (MediaFile, AppState same)
 
 #[tokio::main]
 async fn main() {
-    // ENSURE DIRS EXIST
     let _ = std::fs::create_dir_all("../media");
     let _ = std::fs::create_dir_all("../thumbs");
-
-    // CHMOD
     let _ = Command::new("chmod").args(["777", "../media"]).output();
     let _ = Command::new("chmod").args(["777", "../thumbs"]).output();
-
-    // ABSOLUTE PATHS
-    let media_dir = std::fs::canonicalize("../media").unwrap_or_else(|_| PathBuf::from("../media"));
-    let thumbs_dir = std::fs::canonicalize("../thumbs").unwrap_or_else(|_| PathBuf::from("../thumbs"));
 
     let state = Arc::new(Mutex::new(AppState { media: vec![] }));
 
     let app = Router::new()
-        .nest_service("/media", ServeDir::new(media_dir))   // ← ABSOLUTE
-        .nest_service("/thumbs", ServeDir::new(thumbs_dir)) // ← ABSOLUTE
+        .route("/media/:filename", get(serve_media))      // ← CUSTOM
+        .route("/thumbs/:filename", get(serve_thumbs))    // ← CUSTOM
         .route("/api/media", get(list_media))
         .route("/api/upload", post(upload_media))
         .route("/api/play", post(play_media))
@@ -59,6 +41,32 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
+}
+
+// CUSTOM MEDIA SERVER
+async fn serve_media(Path(filename): Path<String>) -> impl IntoResponse {
+    serve_file(&format!("../media/{}", filename)).await
+}
+
+// CUSTOM THUMBS SERVER
+async fn serve_thumbs(Path(filename): Path<String>) -> impl IntoResponse {
+    serve_file(&format!("../thumbs/{}", filename)).await
+}
+
+// UNIVERSAL FILE SERVER
+async fn serve_file(path: &str) -> impl IntoResponse {
+    match File::open(path).await {
+        Ok(file) => {
+            let stream = ReaderStream::new(file);
+            let body = axum::body::Body::from_stream(stream);
+            let mime = mime_guess::from_path(path).first_or_octet_stream();
+            Response::builder()
+                .header(header::CONTENT_TYPE, mime.to_string())
+                .body(body)
+                .unwrap()
+        }
+        Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
+    }
 }
 
 async fn list_media(
