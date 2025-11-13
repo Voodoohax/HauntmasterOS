@@ -93,11 +93,20 @@ async function uploadFiles(e) {
 function handleDrop(e) { uploadFiles(e) }
 
 async function play(file) {
-  await fetch('/api/play', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: file.id, outputs: { hdmi: hdmi.value, audio: audio.value } })
-  })
+  try {
+    const res = await fetch('/api/play', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: file.id, outputs: { hdmi: hdmi.value, audio: audio.value } })
+    })
+    if (res.ok) {
+      playing.value = file
+    } else {
+      alert("Play failed: " + await res.text())
+    }
+  } catch (e) {
+    alert("Network error: " + e.message)
+  }
 }
 
 async function stopAll() {
