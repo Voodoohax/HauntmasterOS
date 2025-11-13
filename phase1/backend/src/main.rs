@@ -12,23 +12,36 @@ use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 use tower_http::cors::CorsLayer;
 use glob::glob;
-use std::path::PathBuf;
-use mime;
+use mime_guess;
 
-// ... (MediaFile, AppState same)
+#[derive(Serialize, Deserialize, Clone)]
+struct MediaFile {
+    id: String,
+    name: String,
+    path: String,
+    thumb: String,
+    file_type: String,
+}
+
+struct AppState {
+    media: Vec<MediaFile>,
+}
 
 #[tokio::main]
 async fn main() {
+    // CREATE DIRS
     let _ = std::fs::create_dir_all("../media");
     let _ = std::fs::create_dir_all("../thumbs");
+
+    // PERMISSIONS
     let _ = Command::new("chmod").args(["777", "../media"]).output();
     let _ = Command::new("chmod").args(["777", "../thumbs"]).output();
 
     let state = Arc::new(Mutex::new(AppState { media: vec![] }));
 
     let app = Router::new()
-        .route("/media/:filename", get(serve_media))      // ← CUSTOM
-        .route("/thumbs/:filename", get(serve_thumbs))    // ← CUSTOM
+        .route("/media/:filename", get(serve_media))
+        .route("/thumbs/:filename", get(serve_thumbs))
         .route("/api/media", get(list_media))
         .route("/api/upload", post(upload_media))
         .route("/api/play", post(play_media))
@@ -44,17 +57,15 @@ async fn main() {
         .unwrap();
 }
 
-// CUSTOM MEDIA SERVER
+// CUSTOM FILE SERVERS
 async fn serve_media(Path(filename): Path<String>) -> impl IntoResponse {
     serve_file(&format!("../media/{}", filename)).await
 }
 
-// CUSTOM THUMBS SERVER
 async fn serve_thumbs(Path(filename): Path<String>) -> impl IntoResponse {
     serve_file(&format!("../thumbs/{}", filename)).await
 }
 
-// UNIVERSAL FILE SERVER
 async fn serve_file(path: &str) -> impl IntoResponse {
     match File::open(path).await {
         Ok(file) => {
@@ -70,6 +81,7 @@ async fn serve_file(path: &str) -> impl IntoResponse {
     }
 }
 
+// LIST MEDIA
 async fn list_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
 ) -> Json<Vec<MediaFile>> {
@@ -77,6 +89,7 @@ async fn list_media(
     Json(state.media.clone())
 }
 
+// UPLOAD
 async fn upload_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
     mut multipart: Multipart,
@@ -85,8 +98,14 @@ async fn upload_media(
     let mut new_media = vec![];
 
     while let Ok(Some(field)) = multipart.next_field().await {
-        let name = match field.file_name() { Some(n) => n.to_string(), None => continue };
-        let data = match field.bytes().await { Ok(d) => d, Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "File too large").into_response() };
+        let name = match field.file_name() {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+        let data = match field.bytes().await {
+            Ok(d) => d,
+            Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "File too large").into_response(),
+        };
 
         let id = Uuid::new_v4().to_string();
         let ext = name.split('.').last().unwrap_or("bin").to_lowercase();
@@ -97,6 +116,7 @@ async fn upload_media(
         let path = format!("../media/{id}.{ext}");
         let thumb = format!("../thumbs/{id}.webp");
 
+        // WRITE WITH RETRY
         let mut write_success = false;
         for _ in 0..3 {
             if tokio::fs::write(&path, &data).await.is_ok() {
@@ -109,6 +129,7 @@ async fn upload_media(
             return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed").into_response();
         }
 
+        // THUMBNAIL: IMAGE = cwebp, VIDEO = ffmpeg → webp
         if file_type == "image" {
             let status = Command::new("cwebp")
                 .args(["-q", "80", &path, "-o", &thumb])
@@ -156,6 +177,7 @@ async fn upload_media(
     Json(state.media.clone()).into_response()
 }
 
+// DELETE
 async fn delete_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
     Path(id): Path<String>,
@@ -170,10 +192,11 @@ async fn delete_media(
     Json(state.media.clone())
 }
 
+// PLAY
 async fn play_media(
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    let id = payload["id"].as_str().unwrap_or("");  // ← FIXED: Added (
+    let id = payload["id"].as_str().unwrap_or("");
     let hdmi = payload["outputs"]["hdmi"].as_bool().unwrap_or(true);
     let audio = payload["outputs"]["audio"].as_bool().unwrap_or(true);
 
