@@ -1,6 +1,6 @@
 use axum::{
     routing::{get, post, delete},
-    Router, Json, extract::{Multipart, Path, DefaultBodyLimit}, response::IntoResponse,
+    Router, Json, extract::{Multipart, Path}, response::IntoResponse,
     http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
@@ -28,8 +28,13 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
+    // Create media directories
     let _ = std::fs::create_dir_all("../../media");
     let _ = std::fs::create_dir_all("../../thumbs");
+
+    // FIX: Ensure write permissions
+    let _ = Command::new("chmod").args(["777", "../../media"]).output();
+    let _ = Command::new("chmod").args(["777", "../../thumbs"]).output();
 
     let state = Arc::new(Mutex::new(AppState { media: vec![] }));
 
@@ -40,7 +45,7 @@ async fn main() {
         .route("/api/upload", post(upload_media))
         .route("/api/play", post(play_media))
         .route("/api/media/:id", delete(delete_media))
-        .layer(DefaultBodyLimit::max(2 * 1024 * 1024 * 1024))  // 2GB
+        .layer(axum::extract::DefaultBodyLimit::max(2 * 1024 * 1024 * 1024))  // 2GB
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
@@ -72,7 +77,7 @@ async fn upload_media(
         };
         let data = match field.bytes().await {
             Ok(d) => d,
-            Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "File too large".to_string()).into_response(),
+            Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "File too large").into_response(),
         };
 
         let id = Uuid::new_v4().to_string();
@@ -84,13 +89,21 @@ async fn upload_media(
         let path = format!("../../media/{id}.{ext}");
         let thumb = format!("../../thumbs/{id}.jpg");
 
-        if tokio::fs::write(&path, &data).await.is_err() {
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed").into_response();
+        // FIX: Retry write with delay
+        let mut write_success = false;
+        for _ in 0..3 {
+            if tokio::fs::write(&path, &data).await.is_ok() {
+                write_success = true;
+                break;
+            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+        if !write_success {
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed after retry").into_response();
         }
 
-                        // THUMBNAIL: VIDEO = FFmpeg, IMAGE = cwebp → NO WARNINGS
+        // THUMBNAIL: VIDEO = FFmpeg, IMAGE = cwebp (zero warnings)
         if file_type == "video" {
-            // Video: FFmpeg (warning harmless, thumbnail works)
             let mut success = false;
             for _ in 0..3 {
                 let status = Command::new("ffmpeg")
@@ -114,7 +127,6 @@ async fn upload_media(
                 let _ = std::fs::copy(&path, &thumb);
             }
         } else if file_type == "image" {
-            // Image: Use cwebp → WebP → convert to JPG
             let webp_temp = format!("{}.webp", thumb.strip_suffix(".jpg").unwrap());
             let status1 = Command::new("cwebp")
                 .args(["-q", "80", &path, "-o", &webp_temp])
@@ -132,7 +144,7 @@ async fn upload_media(
                 let _ = std::fs::copy(&path, &thumb);
             }
         }
-        
+
         let media_file = MediaFile {
             id: id.clone(),
             name,
