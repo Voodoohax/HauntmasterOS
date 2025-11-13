@@ -4,12 +4,17 @@ use axum::{
     http::header,
 };
 use serde::{Deserialize, Serialize};
+use serde_json;
 use std::process::Command;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 use tower_http::cors::{CorsLayer, Any};
 use glob::glob;
+
+use std::io::Write;
+
+let _ = writeln!(std::io::stderr(), "Error: {:?}", e);
 
 #[derive(Serialize, Deserialize, Clone)]
 struct MediaFile {
