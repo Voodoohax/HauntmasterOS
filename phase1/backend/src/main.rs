@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 use std::path::PathBuf;
+use std::env;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct MediaFile {
@@ -33,7 +34,7 @@ async fn main() {
     let app = Router::new()
         .route("/api/media", get(list_media))
         .route("/api/upload", post(upload_media))
-        .route("/api/media/:id", delete(delete_media))
+        .route("/api/media/:id31", delete(delete_media))
         .with_state(state.clone());
 
     println!("🎃 HauntMaster API running on :3000");
@@ -43,13 +44,13 @@ async fn main() {
         .unwrap();
 }
 
-async fn list_media(State(state): State<Arc<Mutex<AppState>>>) -> Json<Vec<MediaFile>> {
+async fn list_media(axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>) -> Json<Vec<MediaFile>> {
     let state = state.lock().await;
     Json(state.media.clone())
 }
 
 async fn upload_media(
-    State(state): State<Arc<Mutex<AppState>>>,
+    axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     let mut state = state.lock().await;
@@ -66,12 +67,12 @@ async fn upload_media(
         let path = format!("/media/{id}.{ext}");
         let thumb = format!("/thumbs/{id}.jpg");
 
-        tokio::fs::write(format!(".{path}"), &data).await.unwrap();
+        tokio::fs::write(format!("../../.{path}"), &data).await.unwrap();
 
         // Generate thumbnail
         if file_type != "audio" {
             let _ = Command::new("ffmpeg")
-                .args(["-i", &format!(".{path}"), "-ss", "00:00:01", "-vframes", "1", &format!(".{thumb}")])
+                .args(["-i", &format!("../../.{path}"), "-ss", "00:00:01", "-vframes", "1", &format!("../../.{thumb}")])
                 .output();
         }
 
@@ -87,12 +88,12 @@ async fn upload_media(
 }
 
 async fn delete_media(
-    State(state): State<Arc<Mutex<AppState>>>,
+    axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     let mut state = state.lock().await;
     state.media.retain(|f| f.id != id);
-    let _ = tokio::fs::remove_file(format!("./media/{id}.*"));
-    let _ = tokio::fs::remove_file(format!("./thumbs/{id}.jpg"));
+    let _ = tokio::fs::remove_file(format!("../../media/{id}.*"));
+    let _ = tokio::fs::remove_file(format!("../../thumbs/{id}.jpg"));
     Json(state.media.clone())
 }
