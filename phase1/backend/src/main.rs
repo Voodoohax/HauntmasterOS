@@ -37,8 +37,8 @@ async fn main() {
     let state = Arc::new(Mutex::new(AppState { media: vec![] }));
 
     let app = Router::new()
-        .nest_service("/media", ServeDir::new("../media"))  // ← TOWER-HTTP
-        .nest_service("/thumbs", ServeDir::new("../thumbs")) // ← TOWER-HTTP
+        .nest_service("/media", ServeDir::new("../media"))
+        .nest_service("/thumbs", ServeDir::new("../thumbs"))
         .route("/api/media", get(list_media))
         .route("/api/upload", post(upload_media))
         .route("/api/play", post(play_media))
@@ -69,14 +69,8 @@ async fn upload_media(
     let mut new_media = vec![];
 
     while let Ok(Some(field)) = multipart.next_field().await {
-        let name = match field.file_name() {
-            Some(n) => n.to_string(),
-            None => continue,
-        };
-        let data = match field.bytes().await {
-            Ok(d) => d,
-            Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "File too large").into_response(),
-        };
+        let name = match field.file_name() { Some(n) => n.to_string(), None => continue };
+        let data = match field.bytes().await { Ok(d) => d, Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "File too large").into_response() };
 
         let id = Uuid::new_v4().to_string();
         let ext = name.split('.').last().unwrap_or("bin").to_lowercase();
