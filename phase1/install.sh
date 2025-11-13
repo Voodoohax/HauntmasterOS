@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Installing HauntMaster Phase 1..."
+echo "Installing HauntMaster Beta..."
 
 # Update system
 sudo apt update && sudo apt upgrade -y
