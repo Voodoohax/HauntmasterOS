@@ -12,12 +12,12 @@ if ! command -v cargo &> /dev/null; then
     fi
 fi
 
-# === 2. START BACKEND (Rust API on :3000) ===
+# === 2. START BACKEND ===
 echo "Starting API on :3000..."
 cd /home/$USER/hauntmaster-phase1/phase1/backend
 cargo run --release &
 
-# === 3. SERVE UI ON PORT 8080 (NO SUDO NEEDED) ===
+# === 3. SERVE UI ON :8080 ===
 echo "Serving UI on :8080..."
 cd /home/$USER/hauntmaster-phase1/phase1/ui/dist
 python3 -m http.server 8080
