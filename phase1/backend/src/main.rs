@@ -29,11 +29,9 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    // CREATE DIRS
     let _ = std::fs::create_dir_all("../media");
     let _ = std::fs::create_dir_all("../thumbs");
 
-    // PERMISSIONS
     let _ = Command::new("chmod").args(["777", "../media"]).output();
     let _ = Command::new("chmod").args(["777", "../thumbs"]).output();
 
@@ -70,7 +68,7 @@ async fn serve_file(path: &str) -> impl IntoResponse {
     match File::open(path).await {
         Ok(file) => {
             let stream = ReaderStream::new(file);
-            let body = axum::body::Body::from_stream(stream);
+            let body = axum::body::Body::new(stream);  // ← FIXED: Body::new(stream)
             let mime = mime_guess::from_path(path).first_or_octet_stream();
             Response::builder()
                 .header(header::CONTENT_TYPE, mime.to_string())
@@ -116,7 +114,6 @@ async fn upload_media(
         let path = format!("../media/{id}.{ext}");
         let thumb = format!("../thumbs/{id}.webp");
 
-        // WRITE WITH RETRY
         let mut write_success = false;
         for _ in 0..3 {
             if tokio::fs::write(&path, &data).await.is_ok() {
@@ -129,7 +126,6 @@ async fn upload_media(
             return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed").into_response();
         }
 
-        // THUMBNAIL: IMAGE = cwebp, VIDEO = ffmpeg → webp
         if file_type == "image" {
             let status = Command::new("cwebp")
                 .args(["-q", "80", &path, "-o", &thumb])
