@@ -1,18 +1,17 @@
 use axum::{
     routing::{get, post, delete},
-    Router, Json, extract::{Multipart, Path}, response::{IntoResponse, Response}, http::{header, StatusCode},
+    Router, Json, extract::{Multipart, Path}, response::IntoResponse,
+    http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::process::Command;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::fs::File;
-use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 use tower_http::cors::CorsLayer;
+use tower_http::services::ServeDir;
 use glob::glob;
-use mime_guess;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct MediaFile {
@@ -38,8 +37,8 @@ async fn main() {
     let state = Arc::new(Mutex::new(AppState { media: vec![] }));
 
     let app = Router::new()
-        .route("/media/:filename", get(serve_media))
-        .route("/thumbs/:filename", get(serve_thumbs))
+        .nest_service("/media", ServeDir::new("../media"))  // ← TOWER-HTTP
+        .nest_service("/thumbs", ServeDir::new("../thumbs")) // ← TOWER-HTTP
         .route("/api/media", get(list_media))
         .route("/api/upload", post(upload_media))
         .route("/api/play", post(play_media))
@@ -55,31 +54,6 @@ async fn main() {
         .unwrap();
 }
 
-// CUSTOM FILE SERVERS
-async fn serve_media(Path(filename): Path<String>) -> impl IntoResponse {
-    serve_file(&format!("../media/{}", filename)).await
-}
-
-async fn serve_thumbs(Path(filename): Path<String>) -> impl IntoResponse {
-    serve_file(&format!("../thumbs/{}", filename)).await
-}
-
-async fn serve_file(path: &str) -> impl IntoResponse {
-    match File::open(path).await {
-        Ok(file) => {
-            let stream = ReaderStream::new(file);
-            let body = axum::body::Body::new(stream);  // ← FIXED: Body::new(stream)
-            let mime = mime_guess::from_path(path).first_or_octet_stream();
-            Response::builder()
-                .header(header::CONTENT_TYPE, mime.to_string())
-                .body(body)
-                .unwrap()
-        }
-        Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
-    }
-}
-
-// LIST MEDIA
 async fn list_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
 ) -> Json<Vec<MediaFile>> {
@@ -87,7 +61,6 @@ async fn list_media(
     Json(state.media.clone())
 }
 
-// UPLOAD
 async fn upload_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
     mut multipart: Multipart,
@@ -173,7 +146,6 @@ async fn upload_media(
     Json(state.media.clone()).into_response()
 }
 
-// DELETE
 async fn delete_media(
     axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
     Path(id): Path<String>,
@@ -188,7 +160,6 @@ async fn delete_media(
     Json(state.media.clone())
 }
 
-// PLAY
 async fn play_media(
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
