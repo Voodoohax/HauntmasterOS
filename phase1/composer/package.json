@@ -11,7 +11,7 @@
   "dependencies": {
     "vue": "^3.3.4",
     "konva": "^9.2.0",
-    "vue-konva": "^2.2.0"
+    "vue-konva": "^3.2.6"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.0.0",
