@@ -16,7 +16,10 @@ fi
 cd /home/$USER/hauntmaster-phase1/phase1/backend
 cargo run --release &
 
-# Start UI in DEV MODE (proxy + hot reload)
-cd /home/$USER/hauntmaster-phase1/phase1/ui
-npm run dev -- --host 0.0.0.0 --port 8080
-echo "Open: http://$(hostname -I | awk '{print $1}'):8080"
+# Start Legacy UI (on :80)
+cd /home/$USER/hauntmaster/ui
+npm run dev -- --host 0.0.0.0 --port 80 &
+
+# Start Composer (on :81)
+cd /home/$USER/hauntmaster/composer
+npm run dev -- --host 0.0.0.0 --port 81
