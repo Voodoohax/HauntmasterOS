@@ -5,7 +5,7 @@ echo "🎃   Installing HauntMaster OS — Alpha   🎃"
 echo " VLC + FFmpeg + Scene Composer + Auto-Start"
 
 # === 1. SYSTEM UPDATE ===
-sudo apt update && sudo apt full-upgrade -y
+#sudo apt update && sudo apt full-upgrade -y
 
 # === 2. DEPENDENCIES ===
 sudo apt install -y \
