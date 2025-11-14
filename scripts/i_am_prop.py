@@ -25,5 +25,9 @@ if __name__ == '__main__':
     # Default to resting media
     resting_file = os.path.join(MEDIA_DIR, 'resting.mp4')  # From last push
     if os.path.exists(resting_file):
-        player = OMXPlayer(resting_file, loop=True)
+        instance = Instance('--loop')
+        player = instance.media_player_new()
+        media = instance.media_new(resting_file)
+        player.set_media(media)
+        player.play()
     print("Prop mode active.")
