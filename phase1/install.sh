@@ -78,7 +78,6 @@ After=network.target
 Type=simple
 User=$USER
 WorkingDirectory=/home/$USER/hauntmaster
-ExecStart=/home/$USER/hauntmaster/backend/target/release/hauntmaster-backend
 ExecStart=/home/$USER/hauntmaster/start.sh
 Restart=always
 RestartSec=5
