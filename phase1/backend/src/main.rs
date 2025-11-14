@@ -243,4 +243,4 @@ async fn play_media(
     } else {
         (StatusCode::INTERNAL_SERVER_ERROR, "VLC failed").into_response()
     }
-}
+})
