@@ -56,16 +56,16 @@ mkdir -p media thumbs
 chmod 777 media thumbs
 
 # === 8. DOWNLOAD LATEST FILES ===
-echo "Syncing latest main.rs + scene.rs + App.vue + Canvas.vue..."
-curl -o backend/src/main.rs https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/refs/heads/main/phase1/backend/src/main.rs
-curl -o backend/src/scene.rs https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/refs/heads/main/phase1/backend/src/scene.rs
-curl -o composer/src/App.vue https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/refs/heads/main/phase1/composer/src/App.vue
-curl -o composer/src/Canvas.vue https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/refs/heads/main/phase1/composer/src/Canvas.vue
+#echo "Syncing latest main.rs + scene.rs + App.vue + Canvas.vue..."
+#curl -o backend/src/main.rs https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/refs/heads/main/phase1/backend/src/main.rs
+#curl -o backend/src/scene.rs https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/refs/heads/main/phase1/backend/src/scene.rs
+#curl -o composer/src/App.vue https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/refs/heads/main/phase1/composer/src/App.vue
+#curl -o composer/src/Canvas.vue https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/refs/heads/main/phase1/composer/src/Canvas.vue
 
 # === 9. REBUILD BACKEND AFTER SYNC ===
-cd backend
-cargo build --release
-cd ..
+#cd backend
+#cargo build --release
+#cd ..
 
 # === 10. AUTO-START SERVICE ===
 echo "Creating systemd service..."
