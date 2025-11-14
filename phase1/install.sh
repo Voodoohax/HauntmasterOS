@@ -89,21 +89,8 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable hauntmaster.service
 
-# === 11. COMPOSER START SCRIPT ===
-echo "Creating composer start script..."
-cat > start.sh <<'EOF'
-#!/bin/bash
-echo "🎃 Starting HauntMaster..."
-
-# Start backend
-cd /home/$USER/hauntmaster/backend
-cargo run --release &
-
-# Start composer UI
-cd /home/$USER/hauntmaster/composer
-npm run dev -- --host 0.0.0.0 --port 80
-EOF
-chmod +x start-composer.sh
+# === 11. START SCRIPT ===
+chmod +x start.sh
 
 # === 12. FINAL INSTRUCTIONS ===
 echo ""
