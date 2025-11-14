@@ -157,31 +157,79 @@ async fn delete_media(
 async fn play_media(
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    let id = payload["id"].as_str().unwrap_or("");
-    let hdmi = payload["outputs"]["hdmi"].as_bool().unwrap_or(true);
-    let audio = payload["outputs"]["audio"].as_bool().unwrap_or(true);
+    let scene = payload["scene"].as_object().unwrap_or(&serde_json::Map::new());
+    let layers = scene.get("layers").and_then(|v| v.as_array()).unwrap_or(&vec![]);
 
-    let player = if std::path::Path::new("/usr/bin/omxplayer").exists() {
-        "omxplayer"
-    } else {
-        "mpv"
-    };
-
-    if hdmi || audio {
-        let pattern = format!("../media/{id}.*");
-        if let Ok(mut paths) = glob(&pattern) {
-            if let Some(Ok(path)) = paths.next() {
-                let path_str = path.to_str().unwrap();
-                let mut cmd = Command::new(player);
-                if player == "omxplayer" {
-                    cmd.args(["", path_str]);
-                } else {
-                    cmd.args(["--no-osd", "--vo=gpu", path_str]);
-                }
-                let _ = cmd.spawn();
-            }
-        }
+    if layers.is_empty() {
+        return (StatusCode::BAD_REQUEST, "No layers").into_response();
     }
 
-    Json(serde_json::json!({"status": "playing"})).into_response()
+    let mut cmd = Command::new("ffmpeg");
+    cmd.arg("-y");
+
+    let mut inputs = vec![];
+    let mut filters = vec!["[0:v]null[v0]".to_string()];
+    let mut overlay = "[v0]".to_string();
+
+    for (i, layer) in layers.iter().enumerate() {
+        let path = layer["path"].as_str().unwrap_or("");
+        let x = layer["x"].as_f64().unwrap_or(0.0);
+        let y = layer["y"].as_f64().unwrap_or(0.0);
+        let w = layer["width"].as_f64().unwrap_or(400.0);
+        let h = layer["height"].as_f64().unwrap_or(300.0);
+        let opacity = layer["opacity"].as_f64().unwrap_or(1.0);
+        let crop = layer.get("crop").and_then(|c| c.as_object());
+
+        let input_path = format!("../media/{}", path.trim_start_matches("/media/"));
+        inputs.push(format!("-i {}", input_path));
+
+        let mut filter = format!("[{}:v]", i + 1);
+
+        if let Some(c) = crop {
+            let cx = c["x"].as_f64().unwrap_or(0.0);
+            let cy = c["y"].as_f64().unwrap_or(0.0);
+            let cw = c["width"].as_f64().unwrap_or(w);
+            let ch = c["height"].as_f64().unwrap_or(h);
+            filter = format!("{}crop={}:{}:{}:{}", filter, cw, ch, cx, cy);
+        }
+
+        filter = format!(
+            "{}scale={}:{},setsar=1,format=rgba,colorchannelmixer=aa={}[l{}]; \
+             {}pad=1920:1080:-1:-1:color=#00000000[p{}]; \
+             [p{}][l{}]overlay=x={}:y={}[out{}]",
+            filter, w, h, opacity, i,
+            overlay, i,
+            i, i, x, y, i
+        );
+
+        filters.push(filter);
+        overlay = format!("[out{}]", i);
+    }
+
+    let filter_complex = filters.join(";");
+    cmd.args(&inputs);
+    cmd.args([
+        "-filter_complex", &filter_complex,
+        "-map", &format!("{}:v", overlay),
+        "-f", "matroska",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-tune", "zerolatency",
+        "pipe:1"
+    ]);
+
+    let ffmpeg = cmd.stdout(std::process::Stdio::piped()).spawn().unwrap();
+    let vlc = Command::new("cvlc")
+        .args([
+            "-", "--fullscreen", "--no-osd", "--play-and-exit",
+            "--avcodec-hw=any", "--quiet"
+        ])
+        .stdin(ffmpeg.stdout.unwrap())
+        .spawn();
+
+    if vlc.is_ok() {
+        Json(serde_json::json!({"status": "haunting"}))
+    } else {
+        (StatusCode::INTERNAL_SERVER_ERROR, "VLC failed").into_response()
+    }
 }
