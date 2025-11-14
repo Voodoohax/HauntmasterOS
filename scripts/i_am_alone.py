@@ -4,7 +4,7 @@
 import subprocess
 import yaml
 import time
-from omxplayer.player import OMXPlayer
+from vlc import Instance, MediaPlayer
 
 CONFIG_DIR = '/etc/hauntmaster'
 ROLE_FILE = os.path.join(CONFIG_DIR, 'role.yaml')
@@ -21,7 +21,11 @@ if __name__ == '__main__':
     # Play resting media
     resting_file = os.path.join(MEDIA_DIR, 'resting.mp4')
     if os.path.exists(resting_file):
-        player = OMXPlayer(resting_file, loop=True)
+        instance = Instance('--loop')
+        player = instance.media_player_new()
+        media = instance.media_new(resting_file)
+        player.set_media(media)
+        player.play()
     # Monitor loop
     while True:
         if is_reachable():
