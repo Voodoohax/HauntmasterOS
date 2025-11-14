@@ -35,7 +35,7 @@ if [ -d "hauntmaster" ]; then
 else
     echo "Cloning HauntMasterOS..."
     git clone https://github.com/Voodoohax/HauntmasterOS.git hauntmaster
-    cd hauntmaster
+    cd hauntmaster/phase1/
 fi
 
 # === 5. BUILD (BACKEND) ===
