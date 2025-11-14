@@ -1,0 +1,8 @@
+# Example role.yaml file for testing
+role: prop                    # or 'controller'
+playback: true                # For controller subtypes - not used for prop's
+controller_ip: 192.168.1.100  # Controller's IP address - used for prop's and HA
+net_ssid: HauntNet            # Controller's network
+net_passphrase: "boo2025"     # WPA2 key (min 8 chars; hash in prod)
+ha_priority: 1                # For HA (1=primary) Future addition for Commercial branch
+perf_cap: 720p                # Auto-set by model (Pi 3/older default)
