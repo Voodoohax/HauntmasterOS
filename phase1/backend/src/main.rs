@@ -155,14 +155,21 @@ async fn delete_media(
 }
 
 async fn play_media(
+    async fn play_media(
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    let scene_obj = payload["scene"].as_object().unwrap_or(&serde_json::Map::new());
+    // FIX: Clone the default map
+    let scene_obj = payload["scene"]
+        .as_object()
+        .unwrap_or(&serde_json::Map::new())
+        .clone();
+
+    // FIX: Clone the default vec
     let layers = scene_obj
         .get("layers")
         .and_then(|v| v.as_array())
         .unwrap_or(&vec![])
-        .to_vec();  // ← CLONE FIX
+        .to_vec();
 
     if layers.is_empty() {
         return (StatusCode::BAD_REQUEST, "No layers").into_response();
