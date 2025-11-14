@@ -79,7 +79,7 @@ Type=simple
 User=$USER
 WorkingDirectory=/home/$USER/hauntmaster
 ExecStart=/home/$USER/hauntmaster/backend/target/release/hauntmaster-backend
-ExecStartPost=/bin/sleep 5 && /usr/bin/xdg-open http://localhost:80
+ExecStart=/home/$USER/hauntmaster/start.sh
 Restart=always
 RestartSec=5
 
