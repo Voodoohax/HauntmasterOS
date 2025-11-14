@@ -49,7 +49,7 @@ echo "Building Composer..."
 cd composer
 npm install
 npm run build
-cd ../..
+cd ..
 
 # === 7. CREATE DIRS & PERMS ===
 mkdir -p media thumbs
