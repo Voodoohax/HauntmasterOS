@@ -18,7 +18,7 @@ if [ -d "$INSTALL_DIR" ]; then
     cd "$INSTALL_DIR" && git pull origin main
 else
     log "Cloning repo..."
-    git clone https://github.com/Voodoohax/HauntmasterOS.git "$INSTALL_DIR"
+    sudo git clone https://github.com/Voodoohax/HauntmasterOS.git "$INSTALL_DIR"
 fi
 cd "$INSTALL_DIR"
 
