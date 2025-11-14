@@ -17,7 +17,7 @@ sudo apt install -y \
     build-essential \
     libssl-dev \
     pkg-config \
-    nodejs npm
+#   nodejs npm
 
 # === 3. RUST ===
 if ! command -v cargo &> /dev/null; then
