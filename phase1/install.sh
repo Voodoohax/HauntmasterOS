@@ -56,15 +56,16 @@ mkdir -p media thumbs
 chmod 777 media thumbs
 
 # === 8. DOWNLOAD LATEST FILES ===
-echo "Downloading latest main.rs + Cargo.toml + App.vue..."
-curl -o /backend/src/main.rs https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/main/phase1/backend/src/main.rs
-curl -o /backend/Cargo.toml https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/main/phase1/backend/Cargo.toml
-curl -o /composer/src/App.vue https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/main/phase1/composer/src/App.vue
+echo "Syncing latest main.rs + scene.rs + App.vue + Canvas.vue..."
+curl -o backend/src/main.rs https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/main/backend/src/main.rs
+curl -o backend/src/scene.rs https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/main/backend/src/scene.rs
+curl -o composer/src/App.vue https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/main/composer/src/App.vue
+curl -o composer/src/Canvas.vue https://raw.githubusercontent.com/Voodoohax/HauntmasterOS/main/composer/src/Canvas.vue
 
-# === 9. REBUILD BACKEND ===
+# === 9. REBUILD BACKEND AFTER SYNC ===
 cd backend
 cargo build --release
-cd ../..
+cd ..
 
 # === 10. AUTO-START SERVICE ===
 echo "Creating systemd service..."
@@ -113,5 +114,5 @@ echo "AUTO-START ON BOOT:"
 echo "   sudo systemctl start hauntmaster.service"
 echo ""
 echo "OPEN IN BROWSER:"
-echo "   http://$(hostname -I | awk '{print $1}'):8080"
+echo "   http://$(hostname -I | awk '{print $1}'):80"
 ./start.sh"
