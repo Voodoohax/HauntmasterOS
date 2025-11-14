@@ -4,7 +4,7 @@
 import subprocess
 import yaml
 import time
-from omxplayer.player import OMXPlayer  # pip: python-omx
+from vlc import Instance, MediaPlayer  # pip: python-vlc
 
 CONFIG_DIR = '/etc/hauntmaster'
 ROLE_FILE = os.path.join(CONFIG_DIR, 'role.yaml')
