@@ -154,7 +154,6 @@ async fn delete_media(
     Json(state.media.clone())
 }
 
-async fn play_media(
     async fn play_media(
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
@@ -243,4 +242,4 @@ async fn play_media(
     } else {
         (StatusCode::INTERNAL_SERVER_ERROR, "VLC failed").into_response()
     }
-})
+}
