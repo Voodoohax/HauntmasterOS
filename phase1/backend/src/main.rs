@@ -228,7 +228,7 @@ async fn play_media(
         .spawn();
 
     if vlc.is_ok() {
-        Json(serde_json::json!({"status": "haunting"}))
+        Json(serde_json::json!({"status": "haunting"})).into_response()
     } else {
         (StatusCode::INTERNAL_SERVER_ERROR, "VLC failed").into_response()
     }
