@@ -18,7 +18,7 @@ def check_magic_wand():
         with open(os.path.join(WAND_MOUNT, WAND_FILE), 'r') as f:
             data = json.load(f)
         # Join net
-        subprocess.run(['nmcli', 'dev', 'wifi', 'connect', data['ssid'], 'password', data['pass']])
+        subprocess.run(['nmcli', 'dev', 'wifi', 'connect', data['ssid'], 'password', data['passphrase']])
         # Etch role
         role_data = {'role': 'prop', 'controller_ip': data['controller_ip']}
         with open(ROLE_FILE, 'w') as f:
